@@ -1,12 +1,15 @@
 ///////////////////////////// API ///////////////////////////
 
-const Api = (() => {
-    const baseUrl = 'https://jsonplaceholder.typicode.com'
-    // const baseUrl = 'https://localhost:4232'
-    const todoPath = "todos"
 
-    const getTodos = () =>{
-        fetch([baseUrl, todoPath].join("/")).then((res) => res.json())
+const Api = (() => {
+    // const baseUrl = 'http://jsonplaceholder.typicode.com'
+    const baseUrl = 'http://localhost:4232'
+    const todoPath = "todos"
+    
+    async function getTodos() {
+        const res = await fetch([baseUrl, todoPath].join("/"))
+        const data = await res.json()
+        return await data
     }
 
     const deleteTodo = (id) => {
@@ -27,6 +30,8 @@ const Api = (() => {
     return {getTodos, deleteTodo, addTodo}
 })();
 
+console.log(Api.getTodos())
+
 
 ///////////////////////////// VIEW ///////////////////////////
 
@@ -36,8 +41,9 @@ const View = (() =>{
         dltBtn: ".dltBtn",
         input: "#toDoInput",
     }
-
+    console.log(dmstr.toDoContainer + ' line 40')
     const render = (ele, tmp) => {
+        console.log('render')
         ele.innerHTML = tmp
     }
 
@@ -54,15 +60,15 @@ const View = (() =>{
         return tmp
     }
 
-    return {dmstr, render, createTmp}
+    return {render, createTmp, dmstr}
 })();
 
 
 ///////////////////////////// MODEL ///////////////////////////
 
-const Model = (() => {
+const Model = ((api, view) => {
     const {getTodos, deleteTodo, addTodo} = api
-
+    
     class Todo {
         constructor(title){
             this.userId = 1;
@@ -70,21 +76,77 @@ const Model = (() => {
             this.completed = false;
         }
     }
-
+    
     class State {
         #todoList = [];
-
+        
         get todoList() {
+            console.log('hello');
             return this.#todoList
         }
         set todoList(newTodoList) {
             this.#todoList = newTodoList
             const toDoContainer = document.querySelector(view.dmstr.toDoContainer)
-            const tmp = view.createTmp(this.#totodoList)
-            view.render(toDoContainer, tmp)
+            console.log(toDoContainer)
+            const tmp = view.createTmp(this.#todoList)
+            View.render(toDoContainer, tmp)
         }
     }
 
     return {getTodos, deleteTodo, addTodo, State, Todo}
 
 })(Api, View)
+
+
+///////////////////////////// CONTROLLER ///////////////////////////
+
+const Controller = ((model, view) => {
+    const state = new model.State()
+
+    const deleteTodo = () => {
+        const toDoContainer = document.querySelector(view.dmstr.toDoContainer)
+        toDoContainer.addEventListener("click", (evt) =>{
+            if(evt.target.className === "dltBtn"){
+                state.todoList = state.todoList.filter((todo) => {
+                    +todo.id !== evt.target.id
+                })
+                model.deleteTodo(evt.target.id)
+            }
+        })
+    }
+
+    const addTodo = () => {
+        const inputBx = document.querySelector(view.dmstr.input)
+        inputBx.addEventListener("keyup", (event) => {
+            if(event.key === "Enter" && event.target.value.trim() !== ''){
+                const newTodo = new model.Todo(
+                    event.target.value
+                )
+
+                model.addTodo(newTodo).then((todo) => {
+                    state.todoList = [todo, ...state.todoList]
+                })
+
+                event.target.value = ''
+            }
+        })
+    }
+
+    const init = () => {
+        console.log('init')
+        console.log(model.getTodos())
+        model.getTodos().then((todos) => {
+            state.todoList = todos
+        })
+    }
+
+    const returnFn = () => {
+        init()
+        deleteTodo()
+        addTodo()
+    }
+
+    return {returnFn}
+})(Model, View)
+
+Controller.returnFn()
